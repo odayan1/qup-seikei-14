@@ -131,6 +131,12 @@ input[type=range]{width:100%;margin-top:10px;accent-color:var(--acc)}
 .howto li{display:flex;gap:8px;margin-top:8px}.howto li .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--main);color:#fff;font-weight:900;display:grid;place-items:center;font-size:13px}
 .howto li.k .n{background:var(--ky)}
 footer{font-size:11px;color:#8a949e;line-height:1.7;margin-top:24px;text-align:center}
+/* 2026-10-29 動線マップ：アプリの出口3つ（一覧・チャンネル登録・X）。行き止まりをなくす */
+.exits{background:#fff;border:2px solid var(--soft);border-radius:16px;padding:12px 14px;margin-top:16px}
+.exits .exh{font-weight:800;font-size:14px;color:var(--main);margin-bottom:4px}
+.exits a{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid #eef3f3;color:var(--ink);text-decoration:none;font-size:14.5px;font-weight:700}
+.exits a:first-of-type{border-top:0}.exits a small{display:block;font-weight:400;color:#6b7780;font-size:12px}
+.exits .ei{flex:none;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:20;width:100%;height:100%}
 #modal{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:30;display:none;align-items:center;justify-content:center;padding:20px}
 #modal .mbox{background:#fff;border-radius:16px;padding:18px;max-width:360px;width:100%}
@@ -720,6 +726,12 @@ function intro() {
     <footer>${FOOT}</footer>`);
   $("#go").onclick = home;
 }
+/* 2026-10-29 動線マップ：出口3つ。一覧ページ（固定URL・note開設後はnoteへ転送）／チャンネル登録／X。クリックは track("out-…") で数える */
+const HUB = "https://odayan1.github.io/qup-seikei/?utm_source=app";
+const EXITS = () => `<div class="exits"><div class="exh">ほかの回も、まつり先生と</div>
+  <a href="${HUB}" target="_blank" rel="noopener" onclick="track('out-hub')"><span class="ei" style="background:var(--soft)">📚</span><span>全単元の一覧<small>公共・政治・経済・国際の動画と練習アプリ</small></span></a>
+  <a href="https://www.youtube.com/@qup-seikei?sub_confirmation=1" target="_blank" rel="noopener" onclick="track('out-sub')"><span class="ei" style="background:#ffe5e3">🔔</span><span>チャンネル登録<small>新しい回が出たらお知らせが届きます</small></span></a>
+  <a href="https://x.com/qup_seikei" target="_blank" rel="noopener" onclick="track('out-x')"><span class="ei" style="background:#eceff1">𝕏</span><span>まつり先生をフォロー<small>@qup_seikei</small></span></a></div>`;
 const FOOT = `Q-UP塾 公共・政経<br>まつり先生はAIで作ったキャラクターです。内容は山梨県の現役塾講師が監修しています。<br>STEP2の問題は、共通テストの形にならったオリジナル問題です（過去問の転載ではありません）。<br>※大学入試センターとは関係ありません。`;
 
 /* ===== ホーム ===== */
@@ -741,6 +753,7 @@ function home() {
   <div class="menu"><button class="item kyi" onclick="kyotsu()"><span class="ic">🎯</span><span><b>共通テスト形式 ${KY.qs.length}問</b><small>${KY.formats}</small>${histTag("kyotsu")}</span>${d.kyotsu ? '<span class="done">✔ 済</span>' : ""}</button></div>
   ${UNIT.next ? `<div class="next">📺 次回　<b>${UNIT.next.title}</b><br>${UNIT.next.text}</div>` : ""}
   <button class="btn sub" onclick="intro()">📖 はじめに（使い方）</button>
+  ${EXITS()}
   <footer>${FOOT}</footer>`);
 }
 
@@ -879,6 +892,7 @@ function resultScreen(res, opt) {
     ${!opt.ky && opt.chapter === undefined && pc >= 70 ? `<button class="btn ky" onclick="kyotsu()">🎯 STEP2 共通テスト形式へ</button>` : ""}
     ${UNIT.lab && !opt.ky ? `<button class="btn lab" onclick="lab()">${UNIT.lab.icon} ${UNIT.lab.title}</button>` : ""}
     <button class="btn sub" onclick="home()">ホームにもどる</button>
+    ${EXITS()}
     ${wrong.length ? `<h2 style="margin-top:18px">📒 まちがえた問題の復習</h2>${wrong.map(x => { const q = x.q; return `<div class="rv">${q.fmt ? `<span class="fmt">${q.fmt}</span>` : ""}<div class="qq">${q.q}</div>
       <div class="ya">あなたの答え：${x.picked || "—"}</div><div class="aa">正解：${ansOf(q)}</div><div>${q.e}</div>
       ${q.w ? `<div class="why">${q.c.map((c, j) => `<div><span class="no">${NO[j]}</span><span class="${j === q.a ? "okm" : "ngm"}">${j === q.a ? "○" : "×"}</span> ${q.w[j]}</div>`).join("")}</div>` : ""}
