@@ -44,6 +44,7 @@ h2{font-size:18px;margin:0 0 8px;color:var(--main)}
 .item .done{margin-left:auto;font-size:12px;color:var(--ok);font-weight:800;flex:none}
 .item.labi{border-color:#d9cdf5;background:#faf7ff}.item.trap{border-color:#ffd1c9;background:#fffaf8}.item.test{border-color:var(--main2);background:var(--soft)}
 .item.kyi{border-color:#cbc4f0;background:var(--kysoft)}.item.kyi .hs{background:#fff;color:var(--ky)}
+.item .hs.part,.item.kyi .hs.part{background:#fff4d6;color:#8a5a00}
 .sec{font-size:12.5px;font-weight:800;color:var(--acc);letter-spacing:.06em;margin-top:20px}
 .sec.ky{color:var(--ky)}
 .secnote{font-size:12px;color:#6b7885;margin-top:2px}
@@ -76,6 +77,11 @@ h2{font-size:18px;margin:0 0 8px;color:var(--main)}
 .why div{margin:4px 0}.why .no{font-weight:900;color:var(--ky)}.why .okm{color:var(--ok);font-weight:800}.why .ngm{color:var(--ng);font-weight:800}
 .tip{background:var(--kysoft);border-left:4px solid var(--ky);border-radius:8px;padding:9px 11px;margin-top:10px;font-size:14px;line-height:1.7}
 .tip b.h{color:var(--ky)}
+/* 2026-10-31 立場選択（G）の2段：①立場を選ぶ → ②その立場の根拠を選ぶ（k:"st"） */
+.choices.stb button.pick{border-color:var(--ky);background:var(--kysoft)}
+.choices.gr button.sel{border-color:var(--ky);background:var(--kysoft)}
+.q2{font-size:16px;font-weight:700;line-height:1.6;margin-top:16px;border-top:1px dashed #cfd8dc;padding-top:12px}
+.stg{display:inline-block;background:var(--kysoft);color:var(--ky);font-size:12px;font-weight:900;border-radius:6px;padding:1px 7px;margin-right:4px}
 .vl{display:inline-block;margin-top:8px;color:#c4302b;font-weight:800;text-decoration:none;font-size:13px;border:1.5px solid #f3c4c2;border-radius:99px;padding:3px 10px;background:#fff}
 /* 図解 */
 .fig{background:#fbfdfd;border:1.5px solid #e1ecec;border-radius:14px;padding:12px;margin-top:12px;font-size:14px;line-height:1.6}
@@ -225,8 +231,10 @@ function track(name) { try { if (LIVE && window.goatcounter && window.goatcounte
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const mmss = t => Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0");
 const NO = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
+const KANA = ["ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク"];
 let VIDEO = "";
-const vlink = t => (t || t === 0) ? `<a class="vl" href="${VIDEO}?t=${t}" target="_blank" rel="noopener">▶ 動画で確認（${mmss(t)}〜）</a>` : "";
+/* 動画がまだ無い回（UNIT.video が空）は「▶ 動画で確認」を出さない（2026-10-31 傾向と対策回：動画と同じ日に公開するため） */
+const vlink = t => (VIDEO && (t || t === 0)) ? `<a class="vl" href="${VIDEO}?t=${t}" target="_blank" rel="noopener">▶ 動画で確認（${mmss(t)}〜）</a>` : "";
 const bubble = (face, t) => `<div class="bubble"><img src="${IMG["face-" + face]}" alt=""><div>${t}</div></div>`;
 const prog = (i, n) => `<div class="prog">${Array.from({ length: n }, (_, k) => `<i class="${k < i ? "d" : k === i ? "c" : ""}"></i>`).join("")}</div>`;
 let KEY = "qups_";
@@ -682,12 +690,23 @@ function record(sec, ok, n) {
   const d = new Date(), pc = Math.round(ok / n * 100);
   h.push({ pc, ok, n, d: `${d.getMonth() + 1}/${d.getDate()}` });
   store.setItem(KEY + "h_" + sec, JSON.stringify(h.slice(-20)));
+  store.removeItem(KEY + "p_" + sec); /* 最後まで解いたので「途中まで」は消す */
   return { prev, best, pc, all: h.slice(-6) };
 }
+/* 2026-11-01 途中までの記録（まっさん指示）：答えるたびに上書き保存。途中でやめても・ページを閉じても残る。最後まで解いたら record() が消す。
+   前回・ベスト（h_）には入れない＝途中の数字でベストや前回比べがずれないように。 */
+const partial = sec => JSON.parse(store.getItem(KEY + "p_" + sec) || "null");
+function savePartial(sec, res, n) {
+  if (!sec || !res.length) return;
+  const d = new Date();
+  store.setItem(KEY + "p_" + sec, JSON.stringify({ ok: res.filter(r => r.ok).length, a: res.length, n, d: `${d.getMonth() + 1}/${d.getDate()}` }));
+}
 function histTag(sec) {
-  const h = hist(sec); if (!h.length) return "";
+  const h = hist(sec), p = partial(sec);
+  const pt = p ? `<span class="hs part">途中まで ${p.a}/${p.n}問（正解${p.ok}）・${p.d}</span>` : "";
+  if (!h.length) return pt;
   const last = h[h.length - 1], best = Math.max(...h.map(x => x.pc));
-  return `<span class="hs">前回 ${last.ok}/${last.n}（${last.pc}%）・ベスト ${best}%・${h.length}回</span>`;
+  return `<span class="hs">前回 ${last.ok}/${last.n}（${last.pc}%）・ベスト ${best}%・${h.length}回</span>${pt ? " " + pt : ""}`;
 }
 function cmpHtml(r) {
   if (!r) return "";
@@ -704,7 +723,7 @@ function cmpHtml(r) {
 /* ===== 確認ダイアログ（解答中にホームへ戻るとき） ===== */
 function closeModal() { const m = document.getElementById("modal"); if (m) m.style.display = "none"; }
 function askHome() {
-  $("#mbox").innerHTML = `<h2>途中でやめますか？</h2><div class="muted">ここまでの答えは記録されません。</div>
+  $("#mbox").innerHTML = `<h2>途中でやめますか？</h2><div class="muted">ここまでの答えは「途中まで」として残るよ。最後まで解くと、前回・ベストの記録になるよ。</div>
     <div class="row2"><button class="btn sub" id="mc">つづける</button><button class="btn main" id="mh">ホームへ</button></div>`;
   $("#modal").style.display = "flex";
   $("#mc").onclick = closeModal; $("#mh").onclick = () => { closeModal(); home(); };
@@ -741,10 +760,11 @@ function home() {
   screen(`<div class="card pop">
     <h1>${LABEL}　${UNIT.title}</h1>
     <div class="muted">${UNIT.sub}</div>
-    <a class="vcard" href="${VIDEO}" target="_blank" rel="noopener"><img src="${IMG["pose-hi"]}" alt="まつり先生"><span><b>▶ 動画を見る</b><small>YouTube・${UNIT.videoLen}　まずは動画から！</small></span></a></div>
+    ${VIDEO ? `<a class="vcard" href="${VIDEO}" target="_blank" rel="noopener"><img src="${IMG["pose-hi"]}" alt="まつり先生"><span><b>▶ 動画を見る</b><small>YouTube・${UNIT.videoLen}　まずは動画から！</small></span></a>`
+      : `<div class="vcard"><img src="${IMG["pose-hi"]}" alt="まつり先生"><span><b>▶ 動画は近日公開</b><small>公開したら、ここから見られるよ</small></span></div>`}</div>
   <div class="sec">STEP 1　動画の復習（動画と同じ順番）</div>
   <div class="secnote">全${CH.length}章・${nq}問。上から順に進めよう。</div>
-  <div class="menu">${CH.map((c, i) => `<button class="item" onclick="chapter(${i})"><span class="ic">${c.icon}</span><span><b>${i + 1}. ${c.title}</b><small>動画 ${mmss(c.t)}〜 ／ 問題${c.qs.length}問</small>${histTag(c.id)}</span>${d[c.id] ? '<span class="done">✔ 済</span>' : ""}</button>`).join("")}
+  <div class="menu">${CH.map((c, i) => `<button class="item" onclick="chapter(${i})"><span class="ic">${c.icon}</span><span><b>${i + 1}. ${c.title}</b><small>${VIDEO ? `動画 ${mmss(c.t)}〜 ／ ` : ""}問題${c.qs.length}問</small>${histTag(c.id)}</span>${d[c.id] ? '<span class="done">✔ 済</span>' : ""}</button>`).join("")}
   ${UNIT.lab ? `<button class="item labi" onclick="lab()"><span class="ic">${UNIT.lab.icon}</span><span><b>${UNIT.lab.title}</b><small>${UNIT.lab.sub}</small>${histTag("lab")}</span>${d.lab ? '<span class="done">✔ 済</span>' : ""}</button>` : ""}
   <button class="item trap" onclick="traps()"><span class="ic">⚠️</span><span><b>ひっかけ ○× ${TRAPS.length}問</b><small>テストで逆にして出してくるところ</small>${histTag("trap")}</span>${d.trap ? '<span class="done">✔ 済</span>' : ""}</button>
   <button class="item test" onclick="test()"><span class="ic">📝</span><span><b>まとめテスト 15問</b><small>STEP1の全範囲からランダム。70%で合格、90%でS級</small>${histTag("test")}</span>${d.test ? '<span class="done">✔ 合格</span>' : ""}</button></div>
@@ -762,7 +782,7 @@ function chapter(i) {
   const c = CH[i]; let k = 0;
   const show = () => {
     if (k >= c.cards.length) {
-      return quiz(c.qs, { title: `${c.icon} ${i + 1}. ${c.title}`, label: "確認問題", shuffleQ: false,
+      return quiz(c.qs, { title: `${c.icon} ${i + 1}. ${c.title}`, label: "確認問題", shuffleQ: false, sec: c.id,
         done: res => { markDone(c.id); resultScreen(res, { sec: c.id, title: `${c.icon} ${i + 1}. ${c.title}`, chapter: i }); } });
     }
     const cd = c.cards[k];
@@ -780,7 +800,7 @@ function chapter(i) {
   show();
 }
 
-/* --- 問題ランナー（4択・○×・並べ替え・共通テスト形式） --- */
+/* --- 問題ランナー（4択・○×・並べ替え・共通テスト形式・立場選択の2段 k:"st"） --- */
 function quiz(list, opt) {
   let i = 0; const res = [];
   const one = () => {
@@ -792,6 +812,12 @@ function quiz(list, opt) {
       body = `<div class="choices${q.ky ? " kyc" : ""}">${order.map((j, n) => `<button data-j="${j}">${q.ky ? `<span class="no">${NO[n]}</span>` : ""}${q.c[j]}</button>`).join("")}</div>`;
     } else if (q.k === "tf") {
       body = `<div class="tf"><button class="o" data-v="1">○</button><button class="x" data-v="0">×</button></div>`;
+    } else if (q.k === "st") {
+      /* 立場選択（G）の2段：q.st＝立場、q.q2＝2段目の問い、q.c＝根拠ア〜、q.a＝立場ごとの正しい根拠の番号の配列（例 [[0,2],[1,3]]） */
+      body = `<div class="choices kyc stb" id="stb">${q.st.map((s, j) => `<button data-s="${j}"><span class="no">${NO[j]}</span>${s}</button>`).join("")}</div>
+        <div id="st2" style="display:none"><div class="q2"><span class="stg">STEP②</span>${q.q2}</div>
+        <div class="choices kyc gr" id="gr">${q.c.map((c, j) => `<button data-j="${j}"><span class="no">${KANA[j]}</span>${c}</button>`).join("")}</div>
+        <button class="btn ky" id="ck2" disabled>答え合わせ</button></div>`;
     } else {
       let pool; do { pool = shuffle(q.items); } while (pool.every((x, j) => x === q.items[j]));
       body = `<div class="muted" style="margin-top:6px">古い順・正しい順に、下からタップして並べよう</div>
@@ -801,12 +827,13 @@ function quiz(list, opt) {
     }
     screen(`<div class="card pop"><div class="stage">${opt.title}　｜　${opt.label} ${i + 1}/${list.length}</div>${prog(i, list.length)}
       ${q.fmt ? `<span class="fmt">${q.fmt}</span>` : ""}${q.pre ? q.pre : ""}
-      <div class="q">${q.k === "tf" ? "○か×か？<br>" : ""}${q.q}</div>${body}<div id="fbx"></div></div>
+      <div class="q">${q.k === "tf" ? "○か×か？<br>" : ""}${q.k === "st" ? `<span class="stg">STEP①</span>` : ""}${q.q}</div>${body}<div id="fbx"></div></div>
       <button class="btn sub" id="hm">ホームにもどる</button>`);
     $("#hm").onclick = askHome;
     const finish = (ok, ansText, picked) => {
       res.push({ q, ok, picked }); if (ok) addPts(q.ky ? 20 : 10);
-      const why = q.w ? `<div class="why">${q.c.map((c, j) => `<div><span class="no">${NO[j]}</span><span class="${j === q.a ? "okm" : "ngm"}">${j === q.a ? "○" : "×"}</span> ${q.w[j]}</div>`).join("")}</div>` : "";
+      savePartial(opt.sec, res, list.length);
+      const why = q.k === "st" ? whySt(q) : q.w ? `<div class="why">${q.c.map((c, j) => `<div><span class="no">${NO[j]}</span><span class="${j === q.a ? "okm" : "ngm"}">${j === q.a ? "○" : "×"}</span> ${q.w[j]}</div>`).join("")}</div>` : "";
       $("#fbx").innerHTML = `<div class="fb ${ok ? "ok" : "ng"} pop"><h3>${ok ? `⭕ 正解！ +${q.ky ? 20 : 10}pt` : "❌ ざんねん…"}</h3>
         ${ok ? "" : `<div class="ans">正解：${ansText}</div>`}<div>${q.e}</div>${why}
         ${q.tip ? `<div class="tip"><b class="h">🎯 共通テストではこう出る</b><br>${q.tip}</div>` : ""}${vlink(q.t)}</div>
@@ -829,6 +856,29 @@ function quiz(list, opt) {
         if (!ok) b.classList.add("ng");
         finish(ok, q.a ? "○" : "×", v ? "○" : "×");
       });
+    } else if (q.k === "st") {
+      /* ①立場（答え合わせまでは選び直せる）→ ②根拠を q.a[立場] の数だけ選ぶ → 答え合わせ。立場はどちらでも正解になりうる */
+      let s = -1; const sel = new Set();
+      const sbs = document.querySelectorAll("#stb button"), gbs = document.querySelectorAll("#gr button");
+      const need = () => (s >= 0 ? q.a[s].length : 0);
+      const draw = () => { gbs.forEach(b => b.classList.toggle("sel", sel.has(Number(b.dataset.j)))); $("#ck2").disabled = !(s >= 0 && sel.size === need()); };
+      sbs.forEach(b => b.onclick = () => {
+        s = Number(b.dataset.s); sbs.forEach(x => x.classList.toggle("pick", x === b));
+        while (sel.size > need()) sel.delete([...sel][0]);
+        $("#st2").style.display = ""; draw();
+      });
+      gbs.forEach(b => b.onclick = () => {
+        const j = Number(b.dataset.j);
+        if (sel.has(j)) sel.delete(j); else if (sel.size < need()) sel.add(j); else if (need() === 1) { sel.clear(); sel.add(j); }
+        draw();
+      });
+      $("#ck2").onclick = () => {
+        const pick = [...sel].sort((x, y) => x - y), right = q.a[s];
+        const ok = pick.length === right.length && pick.every(j => right.includes(j));
+        sbs.forEach(x => x.disabled = true); gbs.forEach(x => x.disabled = true); $("#ck2").disabled = true;
+        gbs.forEach(x => { const j = Number(x.dataset.j); x.classList.remove("sel"); if (right.includes(j)) x.classList.add("ok"); else if (sel.has(j)) x.classList.add("ng"); });
+        finish(ok, `${NO[s]}（${q.st[s]}）を選んだなら ${right.map(j => KANA[j]).join("と")}`, `${NO[s]} ${q.st[s]}・${pick.map(j => KANA[j]).join("と")}`);
+      };
     } else {
       const picked = [];
       const draw = () => {
@@ -847,9 +897,17 @@ function quiz(list, opt) {
   one();
 }
 
+/* 立場選択（G）の解説：根拠ごとに「どちらの立場の根拠か／どちらにもならない（誤り）」を示す＝両方の立場の根拠が分かる */
+function whySt(q) {
+  const owner = j => q.a.findIndex(r => r.includes(j));
+  return `<div class="why">${q.st.map((s, k) => `<div><span class="no">${NO[k]}</span><b>${s}</b>の根拠＝<b>${q.a[k].map(j => KANA[j]).join("と")}</b></div>`).join("")}
+    ${q.c.map((c, j) => { const k = owner(j); return `<div><span class="no">${KANA[j]}</span><span class="${k >= 0 ? "okm" : "ngm"}">${k >= 0 ? NO[k] + "の根拠" : "どちらの根拠にもならない"}</span> ${q.w ? q.w[j] : c}</div>`; }).join("")}</div>`;
+}
+const ansSt = q => q.st.map((s, k) => `${NO[k]}（${s}）なら ${q.a[k].map(j => KANA[j]).join("と")}`).join("／");
+
 /* --- ひっかけ・まとめテスト・共通テスト形式 --- */
-function traps() { quiz(shuffle(TRAPS), { title: "⚠️ ひっかけ ○×", label: "問題", done: res => { markDone("trap"); resultScreen(res, { sec: "trap", title: "⚠️ ひっかけ ○×" }); } }); }
-function test() { quiz(shuffle(ALLQ).slice(0, 15), { title: "📝 まとめテスト", label: "問題", done: res => resultScreen(res, { sec: "test", title: "📝 まとめテスト" }) }); }
+function traps() { quiz(shuffle(TRAPS), { title: "⚠️ ひっかけ ○×", label: "問題", sec: "trap", done: res => { markDone("trap"); resultScreen(res, { sec: "trap", title: "⚠️ ひっかけ ○×" }); } }); }
+function test() { quiz(shuffle(ALLQ).slice(0, 15), { title: "📝 まとめテスト", label: "問題", sec: "test", done: res => resultScreen(res, { sec: "test", title: "📝 まとめテスト" }) }); }
 function kyotsu() {
   screen(`<div class="card pop"><div class="stage" style="color:var(--ky)">🎯 STEP2　共通テストではこう出る</div>
     <h2 style="margin-top:8px">共通テスト形式 ${KY.qs.length}問</h2>
@@ -857,7 +915,7 @@ function kyotsu() {
     <div class="tip"><b class="h">この${KY.qs.length}問の形</b><br>${KY.formats}<br>選択肢は共通テストと同じく①②③④…の番号つき。1問ごとに「共通テストではこう出る」解説が出るよ。</div>
     ${histTag("kyotsu") ? `<div style="margin-top:8px">${histTag("kyotsu")}</div>` : ""}
     <button class="btn ky" id="go">はじめる</button><button class="btn sub" onclick="home()">ホームにもどる</button></div>`);
-  $("#go").onclick = () => quiz(KY.qs, { title: "🎯 共通テスト形式", label: "問", done: res => { markDone("kyotsu"); resultScreen(res, { sec: "kyotsu", title: "🎯 共通テスト形式", ky: true }); } });
+  $("#go").onclick = () => quiz(KY.qs, { title: "🎯 共通テスト形式", label: "問", sec: "kyotsu", done: res => { markDone("kyotsu"); resultScreen(res, { sec: "kyotsu", title: "🎯 共通テスト形式", ky: true }); } });
 }
 function retryWrong(list, opt) {
   quiz(list, { title: opt.title + "（まちがえた問題）", label: "問題", done: res => resultScreen(res, { ...opt, sec: null, retry: true }) });
@@ -870,7 +928,7 @@ function resultScreen(res, opt) {
   track("done-" + (opt.retry ? "retry" : opt.sec || "other"));
   const r = opt.sec ? record(opt.sec, ok, n) : null;
   if (opt.sec === "test" && pc >= 70) markDone("test");
-  const ansOf = q => q.k === "mc" ? (q.ky ? NO[q.a] + " " : "") + q.c[q.a] : q.k === "tf" ? (q.a ? "○" : "×") : q.items.join(" → ");
+  const ansOf = q => q.k === "mc" ? (q.ky ? NO[q.a] + " " : "") + q.c[q.a] : q.k === "tf" ? (q.a ? "○" : "×") : q.k === "st" ? ansSt(q) : q.items.join(" → ");
   const badge = pc === 100 ? "🎉 全問正解！" : pc >= 90 ? "🏆 S級！" : pc >= 70 ? "👍 合格ライン！" : "もう一歩！";
   const msg = opt.ky
     ? (pc >= 80 ? "共通テストの形でも解けたね！この分野の出方は下のまとめでもう一度確認しよう。" : "共通テストは、言葉を知っているだけでなく<b>あてはめ</b>が問われるよ。下のまとめと解説を読んで、もう一度挑戦しよう。")
@@ -895,7 +953,7 @@ function resultScreen(res, opt) {
     ${EXITS()}
     ${wrong.length ? `<h2 style="margin-top:18px">📒 まちがえた問題の復習</h2>${wrong.map(x => { const q = x.q; return `<div class="rv">${q.fmt ? `<span class="fmt">${q.fmt}</span>` : ""}<div class="qq">${q.q}</div>
       <div class="ya">あなたの答え：${x.picked || "—"}</div><div class="aa">正解：${ansOf(q)}</div><div>${q.e}</div>
-      ${q.w ? `<div class="why">${q.c.map((c, j) => `<div><span class="no">${NO[j]}</span><span class="${j === q.a ? "okm" : "ngm"}">${j === q.a ? "○" : "×"}</span> ${q.w[j]}</div>`).join("")}</div>` : ""}
+      ${q.k === "st" ? whySt(q) : q.w ? `<div class="why">${q.c.map((c, j) => `<div><span class="no">${NO[j]}</span><span class="${j === q.a ? "okm" : "ngm"}">${j === q.a ? "○" : "×"}</span> ${q.w[j]}</div>`).join("")}</div>` : ""}
       ${q.tip ? `<div class="tip"><b class="h">🎯 共通テストではこう出る</b><br>${q.tip}</div>` : ""}${vlink(q.t)}</div>`; }).join("")}` : ""}
   </div>`);
   if (pc >= 70) confetti();
